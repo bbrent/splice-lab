@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splice Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a UV-lit gel room. The plasmid map is the hero, with the creature growing in the dish at its centre; the fragment bench sits below it. */
+:root{
+  color-scheme: dark;
+  --bg:#17102b;
+  --panel:#221840;
+  --well:#2c2052;
+  --line:#44357a;
+  --ink:#efe9ff;
+  --dim:#a99fcc;
+  --accent:#ff8a3d;
+  --accent-ink:#2a1203;
+  --display:"Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --body:"IBM Plex Sans", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  background-image:radial-gradient(120% 60% at 50% 0%, #2a1d57 0%, var(--bg) 60%);background-repeat:no-repeat}
+.wrap{max-width:560px;margin:0 auto;padding:18px 16px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;margin:0;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.atp{font-family:var(--mono);text-align:right;font-size:12px;color:var(--dim)}
+.atp b{display:block;font-size:26px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.lede{margin:0;color:var(--dim);max-width:60ch}
+h2{font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px}
+section{display:flex;flex-direction:column}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;align-items:center}
+#plasmid{width:100%;max-width:380px;height:auto;display:block}
+.site{cursor:pointer;fill:none;stroke-width:30;stroke-linecap:butt;outline:none}
+.site:focus-visible{filter:drop-shadow(0 0 4px #fff)}
+.site.target{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{stroke-opacity:.95}}
+.sitelabel{font-family:var(--mono);font-weight:600;font-size:10.5px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.pname{font-family:var(--mono);font-size:12px;color:var(--dim);text-align:center;margin:0}
+.pname i{font-family:var(--body);font-size:16px;color:var(--ink);display:block}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{min-height:44px;padding:8px 14px;border-radius:12px;border:1px solid var(--line);background:var(--well);font-family:var(--mono);font-weight:600;font-size:13px}
+.btn small{font-weight:400;color:var(--dim);display:block;font-size:11px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary small{color:#5c2c08}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible,.cell:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.btn.wide{width:100%}
+.dirs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.dirs .btn{font-size:18px}
+.bench{touch-action:none;user-select:none;-webkit-user-select:none;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cell{aspect-ratio:1;border:1px dashed var(--line);border-radius:10px;background:transparent;padding:4px;display:flex}
+.cell.sel{border:2px solid #fff;background:var(--well)}
+.cell.twin{border-style:solid;border-color:var(--accent)}
+.frag{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#1b1230;font-family:var(--mono);font-weight:600;font-size:11px;
+  clip-path:polygon(0 0,86% 0,86% 50%,100% 50%,100% 100%,14% 100%,14% 50%,0 50%)}
+.frag.new{animation:pop .22s ease-out .12s backwards}
+.frag.merged{animation:bump .26s ease-out .12s}
+@keyframes pop{from{transform:scale(0)}}
+@keyframes bump{40%{transform:scale(1.22)}}
+#plasmid .bob{transform-origin:100px 165px;animation:bob 1.5s ease-in-out infinite alternate}
+#plasmid .flap{animation:flap .26s ease-in-out infinite alternate}
+#plasmid .sway{animation:sway 2.1s ease-in-out infinite alternate}
+#plasmid .wig{animation:wig 1.1s ease-in-out infinite alternate}
+#plasmid .blink{animation:blink 4.2s infinite}
+#plasmid .bob,#plasmid .flap,#plasmid .sway,#plasmid .wig,#plasmid .blink{animation-delay:calc(var(--t,0) * -1s)}
+@keyframes bob{from{transform:translateY(0) scale(1.035,.965)}to{transform:translateY(-7px) scale(.98,1.03)}}
+@keyframes flap{from{transform:rotate(-10deg)}to{transform:rotate(16deg)}}
+@keyframes sway{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+@keyframes wig{from{transform:skewX(-7deg)}to{transform:skewX(7deg)}}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+.pips{display:flex;gap:2px}
+.pips i{width:6px;height:6px;border-radius:50%;border:1.5px solid #1b1230}
+.pips i.on{background:#1b1230}
+.info{min-height:44px;margin:0;font-size:13.5px;color:var(--dim)}
+.info b{color:var(--ink)}
+.info code,.brief code{font-family:var(--mono);color:var(--ink)}
+.tools{display:flex;flex-wrap:wrap;gap:6px}
+.tools .btn{flex:1 1 30%}
+.msg{font-family:var(--mono);font-size:12.5px;color:var(--accent);min-height:36px;margin:0}
+.briefs{display:flex;flex-direction:column;gap:6px}
+.brief{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:8px 10px;display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--panel);font-size:13.5px}
+.brief span:last-child{font-family:var(--mono);font-weight:600;white-space:nowrap}
+.zoo{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.card{background:var(--well);border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:4px;align-items:center}
+.card svg{width:100%;height:auto}
+.card i{font-size:12px;text-align:center;line-height:1.2;overflow-wrap:anywhere}
+.chips{display:flex;gap:2px}
+.chips b{width:13px;height:13px;border-radius:3px;font:600 8px var(--mono);color:#1b1230;display:grid;place-items:center}
+.empty{color:var(--dim);font-size:13.5px;margin:0}
+.codex{display:flex;flex-direction:column;gap:5px}
+.crow{display:grid;grid-template-columns:52px repeat(4,1fr);gap:4px;align-items:stretch}
+.crow>b{font-family:var(--mono);font-size:11px;align-self:center}
+.crow span{font-size:11px;padding:5px 4px;border-radius:6px;border:1px solid var(--line);text-align:center;color:var(--dim);overflow-wrap:anywhere}
+.crow span.got{color:#1b1230;border-color:transparent;font-weight:600}
+.foot{display:flex;justify-content:flex-end}
+.foot .btn{min-height:36px;font-size:12px}
+@media (min-width:860px){
+  .wrap{max-width:1000px;display:grid;grid-template-columns:400px 1fr;column-gap:28px;align-items:start}
+  header,.lede,.full{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:reduce){.site.target,.frag.new,.frag.merged,#plasmid g{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Splice<br><span>Lab</span></h1>
+    <div class="atp"><b id="atp">0</b>ATP (recharges to 12)</div>
+  </header>
+  <p class="lede">Swipe the bench to slide every fragment. Matching fragments that collide ligate into a stronger allele. Tap a fragment to insert it into the plasmid, then grow the creature it codes for.</p>
+
+  <section class="stage">
+    <svg id="plasmid" viewBox="0 0 360 360" role="group" aria-label="Plasmid map with creature preview"></svg>
+    <p class="pname" id="pname"></p>
+    <button class="btn primary wide" id="grow">Transform and grow<small>empties the plasmid, pays ATP</small></button>
+  </section>
+
+  <section>
+    <h2><span>Fragment bench</span><span id="benchcount"></span></h2>
+    <div class="bench" id="bench"></div>
+    <div class="dirs" id="dirs">
+      <button class="btn" data-dir="0" aria-label="Slide left">&larr;</button>
+      <button class="btn" data-dir="2" aria-label="Slide up">&uarr;</button>
+      <button class="btn" data-dir="3" aria-label="Slide down">&darr;</button>
+      <button class="btn" data-dir="1" aria-label="Slide right">&rarr;</button>
+    </div>
+    <p class="info" id="info" style="margin-top:10px"></p>
+    <div class="tools" id="tools"></div>
+    <p class="msg" id="msg" aria-live="polite" style="margin-top:8px"></p>
+  </section>
+
+  <section class="full">
+    <h2>Grant briefs</h2>
+    <div class="briefs" id="briefs"></div>
+  </section>
+
+  <section class="full">
+    <h2><span>Vivarium</span><span id="zoocount"></span></h2>
+    <div class="zoo" id="zoo"></div>
+  </section>
+
+  <section class="full">
+    <h2><span>Allele codex</span><span id="codexcount"></span></h2>
+    <div class="codex" id="codex"></div>
+  </section>
+
+  <div class="foot full"><button class="btn" id="reset">Start a new lab</button></div>
+</div>
+
+<script>
+const G=[
+ {code:'HOX', trait:'Body',   enz:'EcoRI',  oh:'AATT',col:'#ff8a3d',wild:'Speck',    al:['Globule','Pear','Bean','Segmented']},
+ {code:'MC1R',trait:'Pigment',enz:'BamHI',  oh:'GATC',col:'#ff6f9c',wild:'Pale',     al:['Moss','Amber','Magenta','Biolume']},
+ {code:'ASIP',trait:'Pattern',enz:'HindIII',oh:'AGCT',col:'#ffd23f',wild:'Plain',    al:['Spots','Stripes','Belly patch','Iridescent']},
+ {code:'PAX6',trait:'Eyes',   enz:'XbaI',   oh:'CTAG',col:'#5cc8ff',wild:'Eyespots', al:['Cyclops','Paired','Triple','Compound']},
+ {code:'TBX5',trait:'Limbs',  enz:'SalI',   oh:'TCGA',col:'#7be07b',wild:'Limbless', al:['Stubs','Legs','Tentacles','Wings']},
+ {code:'SHH', trait:'Crown',  enz:'NcoI',   oh:'CATG',col:'#b48cff',wild:'Bare',     al:['Antennae','Horns','Spines','Crest']}
+];
+const ROM=['','I','II','III','IV'];
+const INK='#1b1230';
+const $=id=>document.getElementById(id);
+const rnd=n=>Math.floor(Math.random()*n);
+let S, sel=null, fresh=-1,pops=[], msg='', resetArmed=false, uid=0;
+
+function newState(){
+  const s={bench:Array(25).fill(null),plasmid:[0,1,0,0,0,0],atp:14,found:{},zoo:[],briefs:[],hatched:0};
+  [[0,1,1],[1,1,1],[2,3,1],[6,3,1],[7,0,2],[8,4,1],[12,5,1],[13,2,1],[18,4,1]].forEach(([i,g,t])=>s.bench[i]={g,t});
+  ['0-1','0-2','1-1','2-1','3-1','4-1','5-1'].forEach(k=>s.found[k]=1);
+  return s;
+}
+
+/* ---------- creature ---------- */
+const PIG=[['#bdb7c9','#807a93'],['#86c25a','#4a8228'],['#f2a93b','#a9650f'],['#ec5a92','#9c2556'],['#5ff0e0','#1b9c90']];
+function bodyOf(h){
+  return [
+   {s:'<ellipse cx="100" cy="118" rx="36" ry="32"/>',fx:100,fy:114,tx:100,ty:86,by:148,x1:82,x2:118,hw:36,ax:100,ay:112},
+   {s:'<ellipse cx="100" cy="112" rx="50" ry="46"/>',fx:100,fy:106,tx:100,ty:66,by:156,x1:76,x2:124,hw:50,ax:100,ay:106},
+   {s:'<path d="M100 50C128 50 152 158 100 160C48 158 72 50 100 50Z"/>',fx:100,fy:92,tx:100,ty:50,by:158,x1:82,x2:118,hw:34,ax:100,ay:104},
+   {s:'<ellipse cx="100" cy="116" rx="68" ry="36"/>',fx:100,fy:110,tx:100,ty:80,by:150,x1:56,x2:144,hw:60,ax:100,ay:108},
+   {s:'<circle cx="56" cy="126" r="22"/><circle cx="86" cy="118" r="30"/><circle cx="126" cy="104" r="38"/>',fx:126,fy:100,tx:126,ty:66,by:144,x1:58,x2:140,hw:40,ax:96,ay:108}
+  ][h];
+}
+function creature(tr){
+  const [h,p,pat,eye,limb,crn]=tr, B=bodyOf(h), [c,d]=PIG[p], id='c'+(++uid);
+  let o='';
+  const n=h>=3?4:2, xs=[];
+  for(let i=0;i<n;i++) xs.push(B.x1+(B.x2-B.x1)*i/(n-1));
+  // wings
+  if(limb===4){
+    const w=`<path d="M${B.ax} ${B.ay}L${B.ax-78} ${B.ay-58}Q${B.ax-92} ${B.ay-30} ${B.ax-80} ${B.ay-4}Q${B.ax-66} ${B.ay-14} ${B.ax-58} ${B.ay+6}Q${B.ax-44} ${B.ay-4} ${B.ax-36} ${B.ay+12}Z" fill="${c}" fill-opacity=".7" stroke="${d}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    const fw=`<g class="flap" style="transform-origin:${B.ax}px ${B.ay}px">${w}</g>`;
+    o+=fw+`<g transform="translate(${2*B.ax} 0) scale(-1 1)">${fw}</g>`;
+  }
+  // limbs
+  if(limb===1) xs.forEach(x=>o+=`<ellipse cx="${x}" cy="${B.by+1}" rx="10" ry="7" fill="${d}"/>`);
+  if(limb===2||limb===4) xs.forEach(x=>o+=`<path d="M${x} ${B.by-12}V${B.by+18}" stroke="${d}" stroke-width="6" stroke-linecap="round"/><ellipse cx="${x+3}" cy="${B.by+19}" rx="8" ry="4" fill="${d}"/>`);
+  if(limb===3){o+=`<g class="wig" style="transform-origin:100px ${B.by-12}px">`; xs.concat((B.x1+B.x2)/2).forEach((x,i)=>{const k=i%2?1:-1;o+=`<path d="M${x} ${B.by-12}q${-8*k} 14 0 24q${8*k} 10 ${-2*k} 20" fill="none" stroke="${d}" stroke-width="6" stroke-linecap="round"/>`}); o+='</g>'}
+  // crown
+  const tx=B.tx, ty=B.ty;
+  o+=`<g class="sway" style="transform-origin:${tx}px ${ty+10}px">`;
+  if(crn===1) [-1,1].forEach(k=>o+=`<path d="M${tx+8*k} ${ty+6}q${10*k} -24 ${22*k} -28" fill="none" stroke="${d}" stroke-width="3" stroke-linecap="round"/><circle cx="${tx+30*k}" cy="${ty-22}" r="4.5" fill="${c}" stroke="${d}" stroke-width="2"/>`);
+  if(crn===2) [-1,1].forEach(k=>o+=`<polygon points="${tx+24*k},${ty+16} ${tx+30*k},${ty-22} ${tx+6*k},${ty+6}" fill="#f3ead8" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`);
+  if(crn===3) [-28,-14,0,14,28].forEach(q=>{const y=ty+q*q/60+6;o+=`<polygon points="${tx+q-7},${y} ${tx+q},${y-22+Math.abs(q)/4} ${tx+q+7},${y}" fill="${d}"/>`});
+  if(crn===4) [-60,-30,0,30,60].forEach((a,i)=>o+=`<ellipse cx="${tx}" cy="${ty-14}" rx="8" ry="24" transform="rotate(${a} ${tx} ${ty+10})" fill="${i%2?'#f3ead8':c}" stroke="${d}" stroke-width="2"/>`);
+  o+='</g>';
+  // body
+  o+=`<g fill="${c}" stroke="${d}" stroke-width="3" stroke-linejoin="round"${p===4?' style="filter:drop-shadow(0 0 7px #5ff0e0)"':''}>${B.s}</g>`;
+  o+=`<clipPath id="${id}">${B.s}</clipPath><g clip-path="url(#${id})">`;
+  if(h===4) o+=`<g fill="${c}">${B.s}</g>`;
+  if(pat===1) [[70,100,7],[120,130,9],[90,140,6],[140,105,6],[55,125,6],[108,82,5],[150,128,5],[100,62,5]].forEach(([x,y,r])=>o+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${d}" fill-opacity=".5"/>`);
+  if(pat===2) for(let x=30;x<210;x+=22) o+=`<path d="M${x} 40L${x-30} 180" stroke="${d}" stroke-opacity=".45" stroke-width="8"/>`;
+  if(pat===3) o+=`<ellipse cx="${B.fx}" cy="${B.by-6}" rx="${B.hw*.7}" ry="26" fill="#fff" fill-opacity=".45"/>`;
+  if(pat===4) o+=`<linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6f9c"/><stop offset=".35" stop-color="#ffd23f"/><stop offset=".7" stop-color="#5cc8ff"/><stop offset="1" stop-color="#b48cff"/></linearGradient><rect width="200" height="200" fill="url(#${id}g)" fill-opacity=".55"/>`;
+  o+='</g>';
+  // face
+  const fx=B.fx, fy=B.fy, ball=(x,y,r)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="${INK}" stroke-width="1.5"/><circle cx="${x+1}" cy="${y+1}" r="${r*.52}" fill="${INK}"/><circle cx="${x-r*.25}" cy="${y-r*.3}" r="${r*.2}" fill="#fff"/>`;
+  let my=16;
+  o+=`<g class="blink" style="transform-origin:${fx}px ${fy}px">`;
+  if(eye===0){o+=`<circle cx="${fx-9}" cy="${fy}" r="2.6" fill="${INK}"/><circle cx="${fx+9}" cy="${fy}" r="2.6" fill="${INK}"/>`;my=8}
+  if(eye===1) o+=ball(fx,fy,13);
+  if(eye===2) o+=ball(fx-13,fy,9)+ball(fx+13,fy,9);
+  if(eye===3) o+=ball(fx-14,fy+3,8)+ball(fx+14,fy+3,8)+ball(fx,fy-13,8);
+  if(eye===4){[-1,1].forEach(k=>o+=`<ellipse cx="${fx+14*k}" cy="${fy}" rx="11" ry="13" fill="${INK}" stroke="#fff" stroke-opacity=".6" stroke-width="1.5"/><circle cx="${fx+14*k-3}" cy="${fy-5}" r="2.5" fill="#5cc8ff"/><circle cx="${fx+14*k+3}" cy="${fy}" r="2" fill="#ff6f9c"/><circle cx="${fx+14*k-2}" cy="${fy+5}" r="1.8" fill="#ffd23f"/>`);my=18}
+  o+='</g>';
+  o+=`<path d="M${fx-6} ${fy+my}q6 5 12 0" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`;
+  return o;
+}
+function nameOf(tr){
+  const gen=['Micro','Globo','Pyri','Faba','Segmo'][tr[0]]+['zoon','tenna','ceros','spina','crista'][tr[5]];
+  const sp=['pallid','virid','aur','ros','lumin'][tr[1]]+['a','ipoda','ipes','ibrachia','iptera'][tr[4]];
+  return gen+' '+sp;
+}
+
+/* ---------- actions ---------- */
+function say(t){msg=t}
+function discover(g,t){
+  const k=g+'-'+t;
+  if(S.found[k]) return '';
+  S.found[k]=1;
+  if(t>1){S.atp+=3;return ' New allele, +3 ATP.'}
+  return '';
+}
+const emptyCell=()=>{const e=[];S.bench.forEach((c,i)=>{if(!c)e.push(i)});return e.length?e[rnd(e.length)]:-1};
+const alName=(g,t)=>t?G[g].al[t-1]:G[g].wild;
+
+function clickCell(i){
+  fresh=-1,pops=[];
+  sel=(S.bench[i]&&sel!==i)?i:null;
+  draw();
+}
+function canMove(){
+  return S.bench.some((c,i)=>{
+    if(!c) return true;
+    const r=i%5<4?S.bench[i+1]:null, d=i<20?S.bench[i+5]:null;
+    return c.t<4&&[r,d].some(o=>o&&o.g===c.g&&o.t===c.t);
+  });
+}
+function slide(dir){
+  let moved=false, note=''; const from={}; fresh=-1; pops=[];
+  for(let l=0;l<5;l++){
+    const idx=[];
+    for(let k=0;k<5;k++){const p=dir%2?4-k:k; idx.push(dir<2?l*5+p:p*5+l)}
+    const tiles=idx.filter(i=>S.bench[i]).map(i=>Object.assign({i},S.bench[i])), out=[];
+    for(let k=0;k<tiles.length;k++){
+      const a=tiles[k], b=tiles[k+1];
+      if(b&&a.g===b.g&&a.t===b.t&&a.t<4){
+        out.push({g:a.g,t:a.t+1,m:1,i:b.i}); k++;
+        note=`Ligase joined two ${G[a.g].code} fragments into ${alName(a.g,a.t+1)}.`+discover(a.g,a.t+1);
+      }else out.push(a);
+    }
+    idx.forEach((i,k)=>{
+      const n=out[k]||null, o=S.bench[i];
+      if(!o!==!n||(o&&n&&(o.g!==n.g||o.t!==n.t))) moved=true;
+      if(n){from[i]=n.i; if(n.m) pops.push(i)}
+      S.bench[i]=n?{g:n.g,t:n.t}:null;
+    });
+  }
+  if(!moved) say(canMove()?'Nothing can slide that way.':'The bench is jammed. Insert, mutate or discard a fragment.');
+  else{
+    sel=null;
+    const e=emptyCell(), g=rnd(6), t=Math.random()<.1?2:1;
+    S.bench[e]={g,t}; fresh=e; note+=discover(g,t);
+    say(canMove()?note:'The bench is jammed. Insert, mutate or discard a fragment.');
+  }
+  draw();
+  if(moved) animSlide(from);
+}
+function animSlide(from){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cells=$('bench').children, r0=cells[0].getBoundingClientRect(), r1=cells[6].getBoundingClientRect();
+  const sx=r1.left-r0.left, sy=r1.top-r0.top;
+  for(const k in from){
+    const d=+k, s=from[k], f=cells[d].firstElementChild;
+    if(!f||s===d) continue;
+    f.animate([{transform:`translate(${(s%5-d%5)*sx}px,${((s/5|0)-(d/5|0))*sy}px)`},{transform:'none'}],{duration:130,easing:'ease-out'});
+  }
+}
+function clickSite(g){
+  fresh=-1,pops=[];
+  const a=sel!==null?S.bench[sel]:null;
+  if(a&&a.g===g){
+    const old=S.plasmid[g];
+    S.plasmid[g]=a.t;
+    S.bench[sel]=old?{g,t:old}:null;
+    say(`${G[g].oh} ends annealed. ${G[g].code} ${alName(g,a.t)} is in the plasmid.`);
+    sel=null;
+  }else if(a){
+    say(`No match. That fragment has ${G[a.g].oh} ends and this site is cut with ${G[g].enz} (${G[g].oh}).`);
+  }else if(S.plasmid[g]){
+    const e=emptyCell();
+    if(e<0) say('The bench is full. Clear a space before cutting a gene out.');
+    else{S.bench[e]={g,t:S.plasmid[g]};S.plasmid[g]=0;fresh=e;say(`${G[g].enz} cut ${G[g].code} back out of the plasmid.`)}
+  }else say(`Empty ${G[g].enz} site. Select a ${G[g].code} fragment, then tap here.`);
+  draw();
+}
+const pcrCost=t=>(1<<(t-1))+1;
+const TOOLS={
+  insert(){ clickSite(S.bench[sel].g) },
+  cut(){
+    const a=S.bench[sel], e=emptyCell(); if(a.t<2||e<0) return;
+    S.bench[sel]={g:a.g,t:a.t-1}; S.bench[e]={g:a.g,t:a.t-1}; fresh=e;
+    say(`${G[a.g].enz} digest split it into two ${alName(a.g,a.t-1)} fragments.`);
+  },
+  pcr(){
+    const a=S.bench[sel], e=emptyCell(), c=pcrCost(a.t); if(e<0||S.atp<c) return;
+    S.atp-=c; S.bench[e]={g:a.g,t:a.t}; fresh=e;
+    say(`PCR amplified a copy of ${G[a.g].code} ${alName(a.g,a.t)}.`);
+  },
+  mutate(){
+    const a=S.bench[sel]; if(S.atp<1) return;
+    S.atp--; let g; do g=rnd(6); while(g===a.g);
+    S.bench[sel]={g,t:a.t}; fresh=sel;
+    say(`UV mutagenesis turned it into ${G[g].code} ${alName(g,a.t)}.`+discover(g,a.t));
+  },
+  discard(){ if(S.atp<1) return; S.atp--; S.bench[sel]=null; sel=null; say('Fragment autoclaved.') }
+};
+function grow(){
+  const tr=S.plasmid.slice();
+  if(!tr.some(Boolean)){say('The plasmid is empty. Insert at least one fragment first.');return draw()}
+  const name=nameOf(tr), key=tr.join('');
+  let pay=tr.reduce((a,t)=>a+2*t,0), extra='';
+  if(!S.zoo.some(z=>z.join('')===key)){S.zoo.unshift(tr);pay+=3;extra+=' New species.'}
+  S.briefs=S.briefs.filter(b=>{
+    if(b.req.every(([g,t])=>tr[g]>=t)){pay+=b.pay;extra+=' Grant brief met.';return false}
+    return true;
+  });
+  S.atp+=pay; S.hatched++; S.plasmid=[0,0,0,0,0,0]; sel=null; fresh=-1,pops=[];
+  fillBriefs();
+  say(`Grew ${name}. +${pay} ATP.`+extra);
+  draw();
+}
+function fillBriefs(){
+  while(S.briefs.length<2){
+    const maxT=Math.min(4,1+Math.ceil((S.hatched+1)/2));
+    const n=S.hatched<2?1:1+rnd(2), gs=[];
+    while(gs.length<n){const g=rnd(6); if(!gs.includes(g)) gs.push(g)}
+    const req=gs.map(g=>[g,1+rnd(maxT)]);
+    S.briefs.push({req,pay:2+4*req.reduce((a,r)=>a+r[1],0)});
+  }
+}
+
+/* ---------- render ---------- */
+function pt(a,r){const q=a*Math.PI/180;return [180+r*Math.cos(q),180+r*Math.sin(q)]}
+function drawPlasmid(){
+  const a=sel!==null?S.bench[sel]:null;
+  let o=`<circle cx="180" cy="180" r="150" fill="none" stroke="#3a2c66" stroke-width="30"/><circle cx="180" cy="184" r="108" fill="#2c2052" stroke="#44357a" stroke-width="2"/><ellipse cx="180" cy="262" rx="70" ry="9" fill="#17102b" fill-opacity=".5"/>`;
+  o+=`<g transform="translate(80 84)"><g class="bob">${creature(S.plasmid)}</g></g>`;
+  $('plasmid').style.setProperty('--t',(performance.now()/1000).toFixed(2));
+  G.forEach((g,i)=>{
+    const mid=-90+i*60, [x1,y1]=pt(mid-25,150), [x2,y2]=pt(mid+25,150), [lx,ly]=pt(mid,150), t=S.plasmid[i];
+    const rot=Math.sin(mid*Math.PI/180)>0.01?mid-90:mid+90;
+    o+=`<path class="site${a&&a.g===i?' target':''}" data-g="${i}" tabindex="0" role="button" aria-label="${g.trait} site, ${t?alName(i,t):'empty'}" d="M${x1.toFixed(1)} ${y1.toFixed(1)}A150 150 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}" stroke="${g.col}" stroke-opacity="${t?1:.22}"/>`;
+    o+=`<text class="sitelabel" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" transform="rotate(${rot} ${lx.toFixed(1)} ${ly.toFixed(1)})" fill="${t?INK:g.col}">${g.code}${t?' '+ROM[t]:''}</text>`;
+  });
+  $('plasmid').innerHTML=o;
+  const any=S.plasmid.some(Boolean);
+  $('pname').innerHTML=`<i>${nameOf(S.plasmid)}</i>pSPLICE-1 · ${S.plasmid.filter(Boolean).length} of 6 inserts`;
+  $('grow').disabled=!any;
+}
+function drawBench(){
+  const a=sel!==null?S.bench[sel]:null;
+  $('bench').innerHTML=S.bench.map((c,i)=>{
+    const twin=a&&c&&i!==sel&&c.g===a.g&&c.t===a.t&&c.t<4;
+    const inner=c?`<span class="frag${i===fresh?' new':''}${pops.includes(i)?' merged':''}" style="background:${G[c.g].col}">${G[c.g].code}<span class="pips">${[1,2,3,4].map(n=>`<i class="${n<=c.t?'on':''}"></i>`).join('')}</span></span>`:'';
+    return `<button class="cell${i===sel?' sel':''}${twin?' twin':''}" data-i="${i}" aria-label="${c?G[c.g].code+' '+alName(c.g,c.t):'empty well'}">${inner}</button>`;
+  }).join('');
+  $('benchcount').textContent=S.bench.filter(Boolean).length+' / 25';
+}
+function drawPanel(){
+  $('atp').textContent=S.atp;
+  const a=sel!==null?S.bench[sel]:null, full=emptyCell()<0;
+  $('info').innerHTML=a
+    ?`<b>${G[a.g].code} · ${G[a.g].trait}: ${alName(a.g,a.t)}</b> (allele ${ROM[a.t]} of IV). Sticky ends <code>${G[a.g].oh}</code>, cut with ${G[a.g].enz}. Tap the plasmid to insert it.`
+    :'Swipe the bench or use the arrows to slide. Tap a fragment to use tools on it.';
+  const b=(k,label,sub,dis,cls='')=>`<button class="btn ${cls}" data-tool="${k}"${dis?' disabled':''}>${label}<small>${sub}</small></button>`;
+  let o='';
+  if(a){
+    o+=b('insert','Insert','into plasmid',false,'primary');
+    o+=b('cut','Cut','split one tier down',a.t<2||full);
+    o+=b('pcr','PCR copy',pcrCost(a.t)+' ATP',full||S.atp<pcrCost(a.t));
+    o+=b('mutate','Mutate','1 ATP, new gene',S.atp<1);
+    o+=b('discard','Discard','1 ATP',S.atp<1);
+  }
+  $('tools').innerHTML=o;
+  $('msg').textContent=msg;
+}
+function drawMeta(){
+  $('briefs').innerHTML=S.briefs.map(b=>`<div class="brief"><span>Grow a creature with ${b.req.map(([g,t])=>`<code style="color:${G[g].col}">${G[g].trait}</code> at ${alName(g,t)} or stronger`).join(' and ')}</span><span>+${b.pay} ATP</span></div>`).join('');
+  $('zoo').innerHTML=S.zoo.length?S.zoo.map(tr=>`<div class="card"><svg viewBox="0 0 200 200" aria-hidden="true">${creature(tr)}</svg><i>${nameOf(tr)}</i><span class="chips">${tr.map((t,g)=>`<b style="background:${G[g].col};opacity:${t?1:.25}">${t||''}</b>`).join('')}</span></div>`).join(''):'<p class="empty">Nothing grown yet. Your species will be kept here.</p>';
+  $('zoocount').textContent=S.zoo.length+' species';
+  $('codex').innerHTML=G.map((g,i)=>`<div class="crow"><b style="color:${g.col}">${g.code}</b>${g.al.map((n,k)=>S.found[i+'-'+(k+1)]?`<span class="got" style="background:${g.col}">${n}</span>`:`<span>${ROM[k+1]} ?</span>`).join('')}</div>`).join('');
+  $('codexcount').textContent=Object.keys(S.found).length+' / 24';
+}
+function draw(){
+  drawPlasmid();drawBench();drawPanel();drawMeta();
+  try{localStorage.setItem('splice-lab',JSON.stringify(S))}catch(e){}
+}
+
+/* ---------- wiring ---------- */
+let sw=null, swiped=false;
+$('bench').addEventListener('pointerdown',e=>{sw=[e.clientX,e.clientY];swiped=false});
+$('bench').addEventListener('pointerup',e=>{
+  if(!sw) return;
+  const dx=e.clientX-sw[0], dy=e.clientY-sw[1]; sw=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24) return;
+  swiped=true;
+  slide(Math.abs(dx)>Math.abs(dy)?(dx<0?0:1):(dy<0?2:3));
+});
+$('bench').addEventListener('pointercancel',()=>{sw=null});
+$('bench').addEventListener('click',e=>{
+  if(swiped){swiped=false;return}
+  const c=e.target.closest('.cell'); if(c) clickCell(+c.dataset.i);
+});
+$('dirs').addEventListener('click',e=>{const b=e.target.closest('[data-dir]'); if(b) slide(+b.dataset.dir)});
+document.addEventListener('keydown',e=>{
+  const d={ArrowLeft:0,ArrowRight:1,ArrowUp:2,ArrowDown:3}[e.key];
+  if(d===undefined||e.target.closest('.site')) return;
+  e.preventDefault(); slide(d);
+});
+$('tools').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tool]'); if(!b||b.disabled) return;
+  fresh=-1,pops=[]; const k=b.dataset.tool;
+  if(k==='insert') return TOOLS.insert();
+  TOOLS[k](); draw();
+});
+$('plasmid').addEventListener('click',e=>{const s=e.target.closest('.site'); if(s) clickSite(+s.dataset.g)});
+$('plasmid').addEventListener('keydown',e=>{const s=e.target.closest('.site'); if(s&&(e.key==='Enter'||e.key===' ')){e.preventDefault();clickSite(+s.dataset.g)}});
+$('grow').addEventListener('click',grow);
+$('reset').addEventListener('click',()=>{
+  if(!resetArmed){resetArmed=true;$('reset').textContent='Tap again to wipe everything';setTimeout(()=>{resetArmed=false;$('reset').textContent='Start a new lab'},3000);return}
+  resetArmed=false;$('reset').textContent='Start a new lab';
+  S=newState();fillBriefs();sel=null;fresh=-1,pops=[];say('Fresh bench, fresh plasmid.');draw();
+});
+setInterval(()=>{ if(S&&S.atp<12){S.atp++;drawPanel();try{localStorage.setItem('splice-lab',JSON.stringify(S))}catch(e){}} },5000);
+
+function start(data){
+  let saved=data&&data.bench?data:null;
+  if(!saved){try{saved=JSON.parse(localStorage.getItem('splice-lab'))}catch(e){}}
+  S=(saved&&Array.isArray(saved.bench)&&saved.bench.length===25&&Array.isArray(saved.plasmid))?saved:newState();
+  S.found=S.found||{};S.zoo=S.zoo||[];S.briefs=S.briefs||[];S.hatched=S.hatched||0;
+  fillBriefs();
+  say('Swipe left: the two MC1R fragments on the top row will ligate.');
+  draw();
+}
+window.claude?.hot?.snapshot?.(()=>S);
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
