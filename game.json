@@ -1,0 +1,14 @@
+{
+  "id": "splice-lab",
+  "name": "Splice Lab",
+  "genre": "Puzzle",
+  "description": "Slide DNA fragments together into stronger alleles, then grow the creature they code for.",
+  "devices": [
+    "phone",
+    "tablet",
+    "desktop"
+  ],
+  "trust": "casual",
+  "url": "/splice-lab/",
+  "leaderboards": []
+}
